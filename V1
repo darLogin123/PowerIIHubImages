@@ -1,0 +1,550 @@
+--[[
+    PowerMAX V2 / PowerII - 完整最終版 (支援跨平台穩定的 Asset ID Banner)
+    Credits: AI_Daptoper5475
+]]
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local lp = Players.LocalPlayer
+
+-- 防止重複運行導致 GUI 疊加
+if CoreGui:FindFirstChild("PowerMAX_V2") then
+    CoreGui.PowerMAX_V2:Destroy()
+end
+
+-- 檢測 Executor 等級函數
+local function isHighLevelExecutor()
+    local success, name = pcall(function()
+        if identifyexecutor then
+            return tostring(identifyexecutor())
+        elseif getexecutorname then
+            return tostring(getexecutorname())
+        end
+        return ""
+    end)
+    
+    if not success or (name and string.find(string.lower(name), "solara")) then
+        return false
+    end
+    
+    if syn ~= nil or (getgenv and getgenv().syn) or (name ~= "" and not string.find(string.lower(name), "solara")) then
+        return true
+    end
+    
+    return false
+end
+
+-- GUI 安全 parent
+local success, parent = pcall(function()
+    return CoreGui
+end)
+if not success or not parent then
+    parent = lp:WaitForChild("PlayerGui")
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PowerMAX_V2"
+ScreenGui.Parent = parent
+ScreenGui.ResetOnSpawn = false
+
+-- 主框架
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 440, 0, 375)
+Frame.Position = UDim2.new(0.5, -220, 0.5, -187)
+Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 30)
+Frame.Active = true
+Frame.Draggable = false
+
+local FrameCorner = Instance.new("UICorner", Frame)
+FrameCorner.CornerRadius = UDim.new(0, 8)
+
+-- ==================== 🖼️ 頂部橫列 (左 Banner + 右 Title) ====================
+local TopHeader = Instance.new("Frame", Frame)
+TopHeader.Size = UDim2.new(1, 0, 0, 45)
+TopHeader.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+TopHeader.Active = true
+
+local TopCorner = Instance.new("UICorner", TopHeader)
+TopCorner.CornerRadius = UDim.new(0, 8)
+
+local TopCover = Instance.new("Frame", TopHeader)
+TopCover.Size = UDim2.new(1, 0, 0, 8)
+TopCover.Position = UDim2.new(0, 0, 1, -8)
+TopCover.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+TopCover.BorderSizePixel = 0
+
+-- 1. 左側 Banner 圖片 (使用 Roblox Asset ID 跨平台相容)
+local BannerImage = Instance.new("ImageLabel", TopHeader)
+BannerImage.Size = UDim2.new(0, 40, 0, 40)
+BannerImage.Position = UDim2.new(0, 8, 0, 2)
+BannerImage.BackgroundTransparency = 1
+BannerImage.Image = "rbxassetid://73999749489428"
+
+local BannerImageCorner = Instance.new("UICorner", BannerImage)
+BannerImageCorner.CornerRadius = UDim.new(0, 6)
+
+-- 2. 右側 PowerII Title 標題文字
+local PowerIITitle = Instance.new("TextLabel", TopHeader)
+PowerIITitle.Size = UDim2.new(1, -60, 1, 0)
+PowerIITitle.Position = UDim2.new(0, 56, 0, 0)
+PowerIITitle.BackgroundTransparency = 1
+PowerIITitle.Text = "PowerII"
+PowerIITitle.Font = Enum.Font.GothamBold
+PowerIITitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+PowerIITitle.TextSize = 18
+PowerIITitle.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ==================== 📌 下方小標題列 ====================
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.Position = UDim2.new(0, 0, 0, 45)
+Title.BackgroundColor3 = Color3.fromRGB(44, 44, 46)
+Title.Text = "  PowerMAX V2"
+Title.Font = Enum.Font.GothamBold
+Title.TextColor3 = Color3.fromRGB(180, 180, 180)
+Title.TextSize = 12
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Active = true
+
+-- ✨ 平滑拖曳邏輯
+local dragging = false
+local dragStart, startPos
+local targetPosition = Frame.Position
+
+local function initDrag(inputObject)
+    inputObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+end
+
+initDrag(TopHeader)
+initDrag(Title)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        targetPosition = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if dragging then
+        local currentPos = Frame.Position
+        local smoothX = currentPos.X.Offset + (targetPosition.X.Offset - currentPos.X.Offset) * 0.35
+        local smoothY = currentPos.Y.Offset + (targetPosition.Y.Offset - currentPos.Y.Offset) * 0.35
+        
+        Frame.Position = UDim2.new(
+            currentPos.X.Scale, 
+            smoothX, 
+            currentPos.Y.Scale, 
+            smoothY
+        )
+    end
+end)
+
+-- Executor Status 標籤
+local StatusLabel = Instance.new("TextLabel", Frame)
+StatusLabel.Size = UDim2.new(0, 180, 0, 25)
+StatusLabel.Position = UDim2.new(1, -190, 0, 45)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextSize = 11
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+local isHigh = isHighLevelExecutor()
+if isHigh then
+    StatusLabel.Text = "Is High Level? : true"
+    StatusLabel.TextColor3 = Color3.fromRGB(46, 204, 113)
+else
+    StatusLabel.Text = "Is High Level? : false"
+    StatusLabel.TextColor3 = Color3.fromRGB(231, 76, 60)
+end
+
+-- ==================== 🌐 多語言字典 ====================
+local currentLang = "zh_TW"
+
+local Locales = {
+    zh_TW = {
+        MainTab = "主控台", SettingsTab = "設定", ScriptsTab = "腳本", InfoTab = "資訊",
+        CodePlaceholder = "輸入 Lua 腳本...",
+        Execute = "執行", Clear = "清除", Respawn = "重生",
+        FPSLabel = "FPS 限制器 (1 - 240)",
+        FPSPlaceholder = "輸入 FPS 數值...",
+        ReqLoaderBtn = "Require Loader (Filtering Enabled)",
+        ScriptsHeader = "通用腳本 & FE Hubs",
+        RestrictedHeader = "遊戲限制區 (Game Restricted Zone)",
+        SmoothFlyBtn = "Smooth Fly FE",
+        SteveBtn = "Minecraft Steve (Visual)",
+        MsDoorsBtn = "MSDOORS (Doors Hub)",
+        InfoContent = "PowerMAX V2 完整安全版\n狀態: 運行中\nCredits: AI_Daptoper5475\n功能: Asset ID Banner + 跨平台穩定運行",
+        LangLabel = "語言選擇 (Language)"
+    },
+    en = {
+        MainTab = "Main", SettingsTab = "Settings", ScriptsTab = "Scripts", InfoTab = "Info",
+        CodePlaceholder = "Enter Lua script...",
+        Execute = "Execute", Clear = "Clear", Respawn = "Respawn",
+        FPSLabel = "FPS Limiter (1 - 240)",
+        FPSPlaceholder = "Enter FPS value...",
+        ReqLoaderBtn = "Require Loader (Filtering Enabled)",
+        ScriptsHeader = "General Scripts & FE Hubs",
+        RestrictedHeader = "Game Restricted Zone",
+        SmoothFlyBtn = "Smooth Fly FE",
+        SteveBtn = "Minecraft Steve (Visual)",
+        MsDoorsBtn = "MSDOORS (Doors Hub)",
+        InfoContent = "PowerMAX V2 Safe Version\nStatus: Running\nCredits: AI_Daptoper5475\nFeatures: Asset ID Banner + Cross-platform",
+        LangLabel = "Language Selection"
+    },
+    ja = {
+        MainTab = "メイン", SettingsTab = "設定", ScriptsTab = "スクリプト", InfoTab = "情報",
+        CodePlaceholder = "Luaスクリプトを入力...",
+        Execute = "実行", Clear = "クリア", Respawn = "リスポーン",
+        FPSLabel = "FPSリミッター (1 - 240)",
+        FPSPlaceholder = "FPS値を入力...",
+        ReqLoaderBtn = "Require Loader (Filtering Enabled)",
+        ScriptsHeader = "通用スクリプト & FE Hubs",
+        RestrictedHeader = "ゲーム限定ゾーン",
+        SmoothFlyBtn = "Smooth Fly FE",
+        SteveBtn = "Minecraft Steve (Visual)",
+        MsDoorsBtn = "MSDOORS (Doors Hub)",
+        InfoContent = "PowerMAX V2 セーフ版\n状態: 実行中\nCredits: AI_Daptoper5475\nFeatures: Asset ID バナー",
+        LangLabel = "言語選択 (Language)"
+    },
+    ko = {
+        MainTab = "메인", SettingsTab = "설정", ScriptsTab = "스크립트", InfoTab = "정보",
+        CodePlaceholder = "Lua 스크립트 입력...",
+        Execute = "실행", Clear = "지우기", Respawn = "리스폰",
+        FPSLabel = "FPS 제한기 (1 - 240)",
+        FPSPlaceholder = "FPS 값 입력...",
+        ReqLoaderBtn = "Require Loader (Filtering Enabled)",
+        ScriptsHeader = "일반 스크립트 & FE Hubs",
+        RestrictedHeader = "게임 제한 구역",
+        SmoothFlyBtn = "Smooth Fly FE",
+        SteveBtn = "Minecraft Steve (Visual)",
+        MsDoorsBtn = "MSDOORS (Doors Hub)",
+        InfoContent = "PowerMAX V2 안전 버전\n상태: 실행 중\nCredits: AI_Daptoper5475\nFeatures: Asset ID 배너",
+        LangLabel = "언어 선택 (Language)"
+    }
+}
+
+local function L(key)
+    return Locales[currentLang][key] or Locales["en"][key] or key
+end
+
+-- ==================== 📦 容器分頁 (Pages) 系統 ====================
+local function createPage()
+    local page = Instance.new("Frame", Frame)
+    page.Size = UDim2.new(1, 0, 0, 235)
+    page.Position = UDim2.new(0, 0, 0, 75)
+    page.BackgroundTransparency = 1
+    page.Visible = false
+    return page
+end
+
+local MainPanel = createPage()
+local SettingsPanel = createPage()
+local ScriptsPanel = createPage()
+local InfoPanel = createPage()
+
+MainPanel.Visible = true
+
+-- ---------- 1. Main 分頁內容 ----------
+local CodeBox = Instance.new("TextBox", MainPanel)
+CodeBox.Size = UDim2.new(1, -20, 0, 140)
+CodeBox.Position = UDim2.new(0, 10, 0, 5)
+CodeBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+CodeBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+CodeBox.PlaceholderText = L("CodePlaceholder")
+CodeBox.ClearTextOnFocus = false
+CodeBox.MultiLine = true
+CodeBox.TextWrapped = true
+CodeBox.TextXAlignment = Enum.TextXAlignment.Left
+CodeBox.TextYAlignment = Enum.TextYAlignment.Top
+CodeBox.Font = Enum.Font.Code
+CodeBox.TextSize = 13
+
+local BoxCorner = Instance.new("UICorner", CodeBox)
+BoxCorner.CornerRadius = UDim.new(0, 6)
+
+local function createButton(parent, name, text, size, pos, color)
+    local btn = Instance.new("TextButton", parent)
+    btn.Name = name
+    btn.Size = size
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local ExecuteBtn = createButton(MainPanel, "ExecuteBtn", L("Execute"), UDim2.new(0.3, 0, 0, 35), UDim2.new(0.05, 0, 0, 155), Color3.fromRGB(46, 204, 113))
+ExecuteBtn.MouseButton1Click:Connect(function()
+    local code = CodeBox.Text
+    if code ~= "" then
+        local func, err = loadstring(code)
+        if func then
+            pcall(func)
+        else
+            warn("Compile Error: "..tostring(err))
+        end
+    end
+end)
+
+local ClearBtn = createButton(MainPanel, "ClearBtn", L("Clear"), UDim2.new(0.3, 0, 0, 35), UDim2.new(0.35, 0, 0, 155), Color3.fromRGB(231, 76, 60))
+ClearBtn.MouseButton1Click:Connect(function()
+    CodeBox.Text = ""
+end)
+
+local RespawnBtn = createButton(MainPanel, "RespawnBtn", L("Respawn"), UDim2.new(0.3, 0, 0, 35), UDim2.new(0.65, 0, 0, 155), Color3.fromRGB(52, 152, 219))
+RespawnBtn.MouseButton1Click:Connect(function()
+    if lp.Character and lp.Character:FindFirstChildOfClass("Humanoid") then
+        lp.Character:FindFirstChildOfClass("Humanoid").Health = 0
+    end
+end)
+
+
+-- ---------- 2. Settings 分頁內容 ----------
+local FPSLabel = Instance.new("TextLabel", SettingsPanel)
+FPSLabel.Size = UDim2.new(0.9, 0, 0, 16)
+FPSLabel.Position = UDim2.new(0.05, 0, 0, 2)
+FPSLabel.BackgroundTransparency = 1
+FPSLabel.Text = L("FPSLabel")
+FPSLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+FPSLabel.Font = Enum.Font.GothamBold
+FPSLabel.TextSize = 11
+FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local FPSBox = Instance.new("TextBox", SettingsPanel)
+FPSBox.Size = UDim2.new(0.9, 0, 0, 28)
+FPSBox.Position = UDim2.new(0.05, 0, 0, 18)
+FPSBox.BackgroundColor3 = Color3.fromRGB(40, 40, 42)
+FPSBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+FPSBox.PlaceholderText = L("FPSPlaceholder")
+FPSBox.ClearTextOnFocus = false
+FPSBox.Font = Enum.Font.Gotham
+FPSBox.TextSize = 12
+
+local FPSCorner = Instance.new("UICorner", FPSBox)
+FPSCorner.CornerRadius = UDim.new(0, 6)
+
+FPSBox.FocusLost:Connect(function(enterPressed)
+    if not enterPressed then return end
+    local fps = tonumber(FPSBox.Text)
+    if fps and fps >= 1 and fps <= 240 then
+        pcall(function()
+            (_G.setfpscap or setfpscap)(fps)
+        end)
+    end
+end)
+
+local ReqLoaderBtn = createButton(SettingsPanel, "ReqLoaderBtn", L("ReqLoaderBtn"), UDim2.new(0.9, 0, 0, 35), UDim2.new(0.05, 0, 0, 58), Color3.fromRGB(230, 126, 34))
+ReqLoaderBtn.TextSize = 12
+
+ReqLoaderBtn.MouseButton1Click:Connect(function()
+    local isLoaded = (_G.RequireLoaderLoaded == true) 
+        or (getgenv and getgenv().RequireLoaderLoaded == true)
+        or CoreGui:FindFirstChild("FEExecutor")
+        or CoreGui:FindFirstChild("ServersideExecutor")
+
+    if isLoaded then return end
+
+    _G.RequireLoaderLoaded = true
+    if getgenv then getgenv().RequireLoaderLoaded = true end
+
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/darLogin123/FEExecutor1/refs/heads/main/Serverside%20or%20fe%20bypass%20executor.lua"))()
+    end)
+end)
+
+local LangLabel = Instance.new("TextLabel", SettingsPanel)
+LangLabel.Size = UDim2.new(0.9, 0, 0, 16)
+LangLabel.Position = UDim2.new(0.05, 0, 0, 110)
+LangLabel.BackgroundTransparency = 1
+LangLabel.Text = L("LangLabel")
+LangLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+LangLabel.Font = Enum.Font.GothamBold
+LangLabel.TextSize = 11
+LangLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local function createLangBtn(name, text, posX, langCode)
+    local btn = createButton(SettingsPanel, name, text, UDim2.new(0.21, 0, 0, 28), posX, Color3.fromRGB(50, 50, 55))
+    btn.TextSize = 11
+    btn.MouseButton1Click:Connect(function()
+        currentLang = langCode
+        CodeBox.PlaceholderText = L("CodePlaceholder")
+        ExecuteBtn.Text = L("Execute")
+        ClearBtn.Text = L("Clear")
+        RespawnBtn.Text = L("Respawn")
+        FPSLabel.Text = L("FPSLabel")
+        FPSBox.PlaceholderText = L("FPSPlaceholder")
+        ReqLoaderBtn.Text = L("ReqLoaderBtn")
+        LangLabel.Text = L("LangLabel")
+        ScriptsHeader.Text = L("ScriptsHeader")
+        RestrictedHeader.Text = L("RestrictedHeader")
+        SmoothFlyBtn.Text = L("SmoothFlyBtn")
+        SteveBtn.Text = L("SteveBtn")
+        MsDoorsBtn.Text = L("MsDoorsBtn")
+        InfoText.Text = L("InfoContent")
+    end)
+    return btn
+end
+
+createLangBtn("LangZh", "繁體中文", UDim2.new(0.05, 0, 0, 130), "zh_TW")
+createLangBtn("LangEn", "English", UDim2.new(0.28, 0, 0, 130), "en")
+createLangBtn("LangJa", "日本語", UDim2.new(0.51, 0, 0, 130), "ja")
+createLangBtn("LangKo", "한국어", UDim2.new(0.74, 0, 0, 130), "ko")
+
+
+-- ---------- 3. Scripts / Hubs 分頁內容 ----------
+local ScrollFrame = Instance.new("ScrollingFrame", ScriptsPanel)
+ScrollFrame.Size = UDim2.new(1, 0, 1, 0)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 5
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 280)
+
+ScriptsHeader = Instance.new("TextLabel", ScrollFrame)
+ScriptsHeader.Size = UDim2.new(0.9, 0, 0, 20)
+ScriptsHeader.Position = UDim2.new(0.05, 0, 0, 5)
+ScriptsHeader.BackgroundTransparency = 1
+ScriptsHeader.Text = L("ScriptsHeader")
+ScriptsHeader.TextColor3 = Color3.fromRGB(200, 200, 200)
+ScriptsHeader.Font = Enum.Font.GothamBold
+ScriptsHeader.TextSize = 12
+ScriptsHeader.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ✈️ Smooth Fly FE
+local SmoothFlyBtn = createButton(ScrollFrame, "SmoothFlyBtn", L("SmoothFlyBtn"), UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0, 28), Color3.fromRGB(52, 152, 219))
+SmoothFlyBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://gist.githubusercontent.com/darLogin123/58e37d19b2fe67d748f4d24da6f4a192/raw/bac03ad3d75193d47c95c1728a17a42df552a93b/gistfile1.txt"))()
+    end)
+end)
+
+-- 🔥 c00lkidd Clan Remake
+local CoolkiddBtn = createButton(ScrollFrame, "CoolkiddBtn", "c00lkidd Clan Remake", UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0, 64), Color3.fromRGB(155, 89, 182))
+CoolkiddBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://pastebin.com/raw/BawHxeVD"))()
+    end)
+end)
+
+-- ⛏️ Minecraft Steve (Visual)
+local SteveBtn = createButton(ScrollFrame, "SteveBtn", L("SteveBtn"), UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0, 100), Color3.fromRGB(46, 204, 113))
+SteveBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/Steve"))()
+    end)
+end)
+
+-- 🚫 限制遊戲區 (Game Restricted Zone)
+local RestrictedHeader = Instance.new("TextLabel", ScrollFrame)
+RestrictedHeader.Size = UDim2.new(0.9, 0, 0, 20)
+RestrictedHeader.Position = UDim2.new(0.05, 0, 0, 140)
+RestrictedHeader.BackgroundTransparency = 1
+RestrictedHeader.Text = L("RestrictedHeader")
+RestrictedHeader.TextColor3 = Color3.fromRGB(231, 76, 60)
+RestrictedHeader.Font = Enum.Font.GothamBold
+RestrictedHeader.TextSize = 12
+RestrictedHeader.TextXAlignment = Enum.TextXAlignment.Left
+
+-- 👁️ MSDOORS (Doors) 腳本按鈕
+local MsDoorsBtn = createButton(ScrollFrame, "MsDoorsBtn", L("MsDoorsBtn"), UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0, 163), Color3.fromRGB(192, 57, 43))
+MsDoorsBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://www.msdoors.xyz/script"))()
+    end)
+end)
+
+
+-- ---------- 4. Info 分頁內容 ----------
+InfoText = Instance.new("TextLabel", InfoPanel)
+InfoText.Size = UDim2.new(0.9, 0, 0, 100)
+InfoText.Position = UDim2.new(0.05, 0, 0, 15)
+InfoText.BackgroundTransparency = 1
+InfoText.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoText.Font = Enum.Font.Gotham
+InfoText.TextSize = 13
+InfoText.TextXAlignment = Enum.TextXAlignment.Left
+InfoText.TextYAlignment = Enum.TextYAlignment.Top
+InfoText.TextWrapped = true
+InfoText.Text = L("InfoContent")
+
+
+-- ==================== 📑 下方 Tabs 切換列 (4個 Tabs) ====================
+local TabsBar = Instance.new("Frame", Frame)
+TabsBar.Size = UDim2.new(1, -20, 0, 30)
+TabsBar.Position = UDim2.new(0, 10, 1, -38)
+TabsBar.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+
+local TabsBarCorner = Instance.new("UICorner", TabsBar)
+TabsBarCorner.CornerRadius = UDim.new(0, 6)
+
+local function createTabButton(name, text, positionX)
+    local tabBtn = Instance.new("TextButton", TabsBar)
+    tabBtn.Size = UDim2.new(0.24, 0, 1, 0)
+    tabBtn.Position = positionX
+    tabBtn.BackgroundTransparency = 1
+    tabBtn.Text = text
+    tabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    tabBtn.Font = Enum.Font.GothamBold
+    tabBtn.TextSize = 12
+    return tabBtn
+end
+
+local MainTab = createTabButton("MainTab", L("MainTab"), UDim2.new(0.01, 0, 0, 0))
+local SettingsTab = createTabButton("SettingsTab", L("SettingsTab"), UDim2.new(0.26, 0, 0, 0))
+local ScriptsTab = createTabButton("ScriptsTab", L("ScriptsTab"), UDim2.new(0.51, 0, 0, 0))
+local InfoTab = createTabButton("InfoTab", L("InfoTab"), UDim2.new(0.76, 0, 0, 0))
+
+local function switchTab(selectedPanel, selectedBtn)
+    MainPanel.Visible = false
+    SettingsPanel.Visible = false
+    ScriptsPanel.Visible = false
+    InfoPanel.Visible = false
+    
+    MainTab.TextColor3 = Color3.fromRGB(150, 150, 150)
+    SettingsTab.TextColor3 = Color3.fromRGB(150, 150, 150)
+    ScriptsTab.TextColor3 = Color3.fromRGB(150, 150, 150)
+    InfoTab.TextColor3 = Color3.fromRGB(150, 150, 150)
+    
+    selectedPanel.Visible = true
+    selectedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+end
+
+MainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+MainTab.MouseButton1Click:Connect(function()
+    switchTab(MainPanel, MainTab)
+end)
+
+SettingsTab.MouseButton1Click:Connect(function()
+    switchTab(SettingsPanel, SettingsTab)
+end)
+
+ScriptsTab.MouseButton1Click:Connect(function()
+    switchTab(ScriptsPanel, ScriptsTab)
+end)
+
+InfoTab.MouseButton1Click:Connect(function()
+    switchTab(InfoPanel, InfoTab)
+end)
